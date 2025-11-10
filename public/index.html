@@ -1183,27 +1183,24 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
 
     if (!rows.length) return { eq:[100], dates:[ new Date(s.inception_date || Date.now()) ] };
     
-    // ***** START OF ROBUST FIX FOR 'ALL' CALCULATION *****
-    // This heuristic assumes periodic returns are < 1 (e.g., 0.05) and 
-    // cumulative levels are > 1 (e.g., 105.0 or 49.0).
-    // It only applies this check to the 'ALL' series to avoid breaking
-    // 6M/1Y if they have a rare > 100% periodic return.
-    const isLevels = selectedPeriod === 'ALL' && rows.some(r => r.pct > 1);
-    // ***** END OF ROBUST FIX *****
-
+    // ***** START OF FINAL FIX *****
+    // Heuristic: '6M', '1Y', and 'YTD' are periodic returns (decimals).
+    // 'ALL' is *always* cumulative levels (e.g., 100.5, 1050.0, or 49.0).
+    const isLevels = (selectedPeriod === 'ALL');
+    
     let eq;
     if (isLevels) {
-        // Data is already cumulative levels, but missing the 100 baseline.
-        // e.g., raw = [{pct: 1050}, {pct: 1070}] or [{pct: 49.0}, {pct: 52.0}]
+        // Data is already cumulative levels (e.g., [1050, 1070] or [49, 52]).
         // We must prepend the 100 baseline for the chart.
         eq = [100, ...rows.map(r => r.pct)];
     } else {
-        // Data is periodic returns, e.g., raw = [{pct: 0.05}, {pct: 0.02}]
+        // Data is periodic returns (e.g., [0.05, 0.02]).
         // This is the original logic: compound the returns.
         eq = rows.reduce((arr, r)=>{ arr.push(arr.at(-1)*(1+(r.pct||0))); return arr; }, [100]);
     }
+    // ***** END OF FINAL FIX *****
 
-    // This date logic works for both cases, adding a "start" date for the 100 baseline
+  
     const start = new Date(rows[0].d); start.setDate(start.getDate()-1);
     const dates = [start, ...rows.map(r=>r.d)];
     return { eq, dates };
@@ -1214,7 +1211,7 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
     const list = STRATEGIES.filter(x=> selectedAsset==='All' || x.asset===selectedAsset );
     if (!list.length){
       els.stratName.textContent = `No strategies found for "${selectedAsset}"`;
-      // ***** MODIFIED: Clear all 6 fields on error *****
+     
       ['provider','since','currency','risk','aum','period','mBestDay','mWorstDay','mAvgDaily','mPosDays','mTradingDays','mYTD','stratDesc'].forEach(k=>els[k]&&(els[k].textContent='—'));
       drawChart([],[]); updateNav(0,0); markActive(); return;
     }
@@ -1270,9 +1267,9 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
     els.mAvgDaily.style.color = (s.avgDaily && s.avgDaily.startsWith('-')) ? red : (s.avgDaily && s.avgDaily.startsWith('+')) ? green : defaultColor;
     els.mPosDays.style.color = defaultColor; // This is just a %, no color needed
     els.mTradingDays.style.color = defaultColor;
-    // ***** MODIFIED: Use the pre-fetched s.ytd for coloring *****
+  
     els.mYTD.style.color = (s.ytd && s.ytd.startsWith('-')) ? red : (s.ytd && s.ytd.startsWith('+')) ? green : defaultColor;
-    // ***** END OF ADDED BLOCK *****
+    
 
     els.period.textContent = selectedPeriod==='ALL' ? 'All time' : selectedPeriod;
 
@@ -1300,7 +1297,7 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
 
   // --- Init ---
   async function main(){
-    initChart(); // ***** ADDED: Initialize the chart structure *****
+    initChart(); 
     STRATEGIES = await fetchStrategies();
     if (STRATEGIES.length){ renderAssetFilters(); render(); }
     else { $('#stratName').textContent = 'No strategies available.'; updateNav(0,0); }
