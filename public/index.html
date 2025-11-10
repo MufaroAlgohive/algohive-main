@@ -40,13 +40,41 @@
     .hero-left { animation: heroSlideUp .7s ease-out 1.0s both }
     @keyframes heroScaleIn { 0% { transform: scale(1.12); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }
     @keyframes heroSlideUp { 0% { transform: translateY(12px); opacity: 0 } 100% { transform: translateY(0); opacity: 1 } }
-    .highlight { background-image: linear-gradient(0deg, rgba(126,141,82,.28), rgba(126,141,82,.28)); background-size: 0% 100%; background-repeat: no-repeat; border-radius: .25rem; padding: 0 .2em; animation: sweep 1.2s ease-out 1.3s forwards }
+    
+    /* ***** START OF HIGHLIGHT ANIMATION FIX ***** */
+    .highlight { 
+      background-image: linear-gradient(0deg, rgba(126,141,82,.28), rgba(126,141,82,.28)); 
+      background-size: 0% 100%; 
+      background-repeat: no-repeat; 
+      border-radius: .25rem; 
+      padding: 0 .2em; 
+    }
+    /* Run animation on page load for hero highlights */
+    body .highlight {
+       animation: sweep 1.2s ease-out 1.3s forwards;
+    }
+    /* Run animation *again* when it's inside a .swap-in container */
+    .swap-in .highlight {
+       background-size: 0% 100%; /* Reset before animating */
+       animation: sweep .7s ease-out .4s forwards; /* Delay to match swap-in */
+    }
     @keyframes sweep { to { background-size: 100% 100% } }
+    /* ***** END OF HIGHLIGHT ANIMATION FIX ***** */
+
 
     /* New styles for strategy filters */
     @keyframes swapIn { from {opacity:0; transform: translateY(8px) scale(.98)} to {opacity:1; transform: translateY(0) scale(1)} }
     .swap-in { animation: swapIn .45s cubic-bezier(.2,.8,.2,1) both }
-    .tag-active, .prd-active { background: var(--olive); color: #fff; }
+    
+    /* ***** START OF MOBILE UI FIX (CSS) ***** */
+    /* Added border-color to active state for consistency */
+    .tag-active, .prd-active { 
+      background: var(--olive); 
+      color: #fff; 
+      border-color: var(--olive);
+    }
+    /* ***** END OF MOBILE UI FIX (CSS) ***** */
+    
     .prd-active:hover { background: var(--olive-700); }
     .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     
@@ -228,7 +256,7 @@
     </div>
         <div id="strategyBar" class="mt-8 sm:mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4">
 
-            <div id="assetFilters" class="flex flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-white p-1">
+            <div id="assetFilters" class="flex flex-wrap items-center gap-2">
             </div>
 
 <div id="strategyNav" class="hidden"></div>
@@ -1185,7 +1213,8 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
     
     
     // ***** START OF CHART CALCULATION FIX *****
-    // Heuristic: 'JSE Micro Cap' and 'JSE Mid Cap' strategies use *cumulative levels* // for their 'ALL' series data, while other strategies use *periodic returns*.
+    // Heuristic: 'JSE Micro Cap' and 'JSE Mid Cap' strategies use *cumulative levels*
+    // for their 'ALL' series data, while other strategies use *periodic returns*.
     // We get the strategy 's' from the function's scope.
     const isProblematicAsset = (s.asset === 'JSE Micro Cap' || s.asset === 'JSE Mid Cap');
     const isLevels = (selectedPeriod === 'ALL' && isProblematicAsset);
@@ -1286,9 +1315,14 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
 
   function renderAssetFilters(){
     const assets = ['All', ...new Set(STRATEGIES.map(s=>s.asset).filter(Boolean))];
+    
+    // ***** START OF MOBILE UI FIX (JS) *****
+    // Added 'border border-black/10 bg-white' to each button
     els.assetFilters.innerHTML = assets.map(a=>`
-      <button class="asset-tag px-3 py-1.5 rounded-full text-xs font-medium text-[var(--ink)] hover:bg-black/5" data-asset="${a}">${a}</button>
+      <button class="asset-tag px-3 py-1.5 rounded-full text-xs font-medium text-[var(--ink)] hover:bg-black/5 border border-black/10 bg-white" data-asset="${a}">${a}</button>
     `).join('');
+    // ***** END OF MOBILE UI FIX (JS) *****
+    
     $$('.asset-tag').forEach(b=>{
       b.addEventListener('click', ()=>{ selectedAsset=b.dataset.asset; activeStrategyIndex=0; render(); });
     });
