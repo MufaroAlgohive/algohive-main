@@ -66,14 +66,14 @@
     @keyframes swapIn { from {opacity:0; transform: translateY(8px) scale(.98)} to {opacity:1; transform: translateY(0) scale(1)} }
     .swap-in { animation: swapIn .45s cubic-bezier(.2,.8,.2,1) both }
     
-    /* ***** START OF MOBILE UI FIX (CSS) ***** */
-    /* Added border-color to active state for consistency */
+    /* ***** START OF GREEN BUTTON FIX (CSS) ***** */
+    /* This rule now correctly styles both active period and active asset tags */
     .tag-active, .prd-active { 
       background: var(--olive); 
       color: #fff; 
       border-color: var(--olive);
     }
-    /* ***** END OF MOBILE UI FIX (CSS) ***** */
+    /* ***** END OF GREEN BUTTON FIX (CSS) ***** */
     
     .prd-active:hover { background: var(--olive-700); }
     .nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -1194,29 +1194,49 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
       return { eq, dates };
     }
 
-    // periodic returns: { pct, date } OR { pct, label:"Jan 2025" }
+    // ***** START OF "ALL" CALCULATION FIX (labelToDate) *****
+    // This function now handles "Jan 2025" AND "2025" formats
     const labelToDate = (label)=>{
       if (!label) return null;
-      const [mon,yr] = label.split(' ');
-      const mi = new Date(Date.parse(`${mon} 1, 2000`)).getMonth();
-      const d = new Date(Number(yr), mi+1, 0);
-      return isNaN(d.getTime()) ? null : d;
+      
+      // Try "Jan 2025" format
+      if (label.includes(' ')) {
+        const [mon,yr] = label.split(' ');
+        const mi = new Date(Date.parse(`${mon} 1, 2000`)).getMonth();
+        if (mi === -1) return null; // Invalid month
+        const d = new Date(Number(yr), mi+1, 0); // Last day of month
+        return isNaN(d.getTime()) ? null : d;
+      }
+      
+      // Try "2025" format
+      const yr = Number(label);
+      if (yr > 1900 && yr < 3000) {
+         const d = new Date(yr, 11, 31); // Last day of year
+         return d;
+      }
+      
+      return null; // Unknown format
     };
+    // ***** END OF "ALL" CALCULATION FIX (labelToDate) *****
+
 
     const rows = raw.map(r=>{
       const d = r.date ? new Date(r.date) : labelToDate(r.label);
       const pct = (r.pct==null)?0:Number(r.pct); 
       return d ? { d, pct } : null;
-    }).filter(Boolean);
+    }).filter(Boolean); // This filters out any rows where labelToDate returned null
 
-    if (!rows.length) return { eq:[100], dates:[ new Date(s.inception_date || Date.now()) ] };
+    if (!rows.length) {
+      // This will now only happen if series_all is empty OR all labels are invalid
+      return { eq:[100], dates:[ new Date(s.inception_date || Date.now()) ] };
+    }
     
     
     // ***** START OF CHART CALCULATION FIX *****
     // Heuristic: 'JSE Micro Cap' and 'JSE Mid Cap' strategies use *cumulative levels*
     // for their 'ALL' series data, while other strategies use *periodic returns*.
-    // We get the strategy 's' from the function's scope.
-    const isProblematicAsset = (s.asset === 'JSE Micro Cap' || s.asset === 'JSE Mid Cap');
+    const assetName = (s.asset || '').trim(); // Trim for safety
+    const isProblematicAsset = (assetName === 'JSE Micro Cap' || assetName === 'JSE Mid Cap');
     const isLevels = (selectedPeriod === 'ALL' && isProblematicAsset);
     // ***** END OF CHART CALCULATION FIX *****
 
@@ -1316,12 +1336,14 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
   function renderAssetFilters(){
     const assets = ['All', ...new Set(STRATEGIES.map(s=>s.asset).filter(Boolean))];
     
-    // ***** START OF MOBILE UI FIX (JS) *****
-    // Added 'border border-black/10 bg-white' to each button
+    // ***** START OF GREEN BUTTON / MOBILE UI FIX (JS) *****
+    // These classes create a self-contained tag that looks good when wrapped.
+    // 'bg-white', 'border-slate-200', 'text-slate-700' are the "off" state.
+    // 'tag-active' (in CSS) overrides them for the "on" state (green).
     els.assetFilters.innerHTML = assets.map(a=>`
-      <button class="asset-tag px-3 py-1.5 rounded-full text-xs font-medium text-[var(--ink)] hover:bg-black/5 border border-black/10 bg-white" data-asset="${a}">${a}</button>
+      <button class="asset-tag px-3 py-1.5 rounded-full text-xs font-medium text-slate-700 hover:bg-black/5 border border-slate-200 bg-white" data-asset="${a}">${a}</button>
     `).join('');
-    // ***** END OF MOBILE UI FIX (JS) *****
+    // ***** END OF GREEN BUTTON / MOBILE UI FIX (JS) *****
     
     $$('.asset-tag').forEach(b=>{
       b.addEventListener('click', ()=>{ selectedAsset=b.dataset.asset; activeStrategyIndex=0; render(); });
