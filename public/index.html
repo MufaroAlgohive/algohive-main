@@ -1183,15 +1183,18 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
 
     if (!rows.length) return { eq:[100], dates:[ new Date(s.inception_date || Date.now()) ] };
     
-    // Heuristic: Check if the first 'pct' value looks like a cumulative equity level
-    // (e.g., 100.5) rather than a periodic return (e.g., 0.005 or even 5.0 for 500%).
-    // If the first value is > 50, we'll assume the *entire series* is levels.
-    const isLevels = (rows[0]?.pct || 0) > 50; 
+    // ***** START OF ROBUST FIX FOR 'ALL' CALCULATION *****
+    // This heuristic assumes periodic returns are < 1 (e.g., 0.05) and 
+    // cumulative levels are > 1 (e.g., 105.0 or 49.0).
+    // It only applies this check to the 'ALL' series to avoid breaking
+    // 6M/1Y if they have a rare > 100% periodic return.
+    const isLevels = selectedPeriod === 'ALL' && rows.some(r => r.pct > 1);
+    // ***** END OF ROBUST FIX *****
 
     let eq;
     if (isLevels) {
         // Data is already cumulative levels, but missing the 100 baseline.
-        // e.g., raw = [{pct: 1050}, {pct: 1070}]
+        // e.g., raw = [{pct: 1050}, {pct: 1070}] or [{pct: 49.0}, {pct: 52.0}]
         // We must prepend the 100 baseline for the chart.
         eq = [100, ...rows.map(r => r.pct)];
     } else {
@@ -1199,7 +1202,6 @@ AlgoHive (FSP 55118) is a registered Financial Services Provider. All asset clas
         // This is the original logic: compound the returns.
         eq = rows.reduce((arr, r)=>{ arr.push(arr.at(-1)*(1+(r.pct||0))); return arr; }, [100]);
     }
-
 
     // This date logic works for both cases, adding a "start" date for the 100 baseline
     const start = new Date(rows[0].d); start.setDate(start.getDate()-1);
